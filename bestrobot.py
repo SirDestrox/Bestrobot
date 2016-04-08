@@ -14,7 +14,7 @@ class Player:
         self.marches = set()
 
     def forts(self):
-        return set(f for f in Game.forts if f.owner is self)
+        return set(f for f in Game.forts.values() if f.owner is self)
 
 
 class Fort:
@@ -154,6 +154,7 @@ class Mind:
         self.__collect_data()
         self.__get_neutral()
         self.__defend_borders()
+        self.__spread()
         # self.__attack()
         # TODO
 
@@ -164,7 +165,7 @@ class Mind:
 
     def __collect_data(self):
         self.player = Game.players[self.name]
-        self.forts = self.player.forts
+        self.forts = self.player.forts()
         self.marches = self.player.marches
         self.territory = set(f for f in self.forts if self.__in_safety(f))
         self.borders = set(f for f in self.forts if not self.__in_safety(f))
@@ -174,7 +175,7 @@ class Mind:
         for mine in self.forts:
             for tar in mine.neighbours:
                 if tar.owner is not self.player:
-                    tmp = self.targets[tar].append(mine)
+                    tmp = self.targets[tar].add(mine)
                     self.targets[tar] = tmp
 
     def __get_neutral(self):
