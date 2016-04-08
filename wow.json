@@ -1,0 +1,9 @@
+{
+    "players": {
+        "bestrobot": "python ../../../Bestrobot/bestrobot.py",
+        "destroybot": "python ../../../Bestrobot/bestrobot.py"
+    },
+    "mapfile": "map.input",
+    "logfile": "epic.data",
+    "max_steps": 500
+}

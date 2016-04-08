@@ -29,7 +29,6 @@ class Fort:
         Game.players[owner].forts.add(self)
 
     def distance(self, neighbour):
-        """ returns distance in steps"""
         dist = sqrt((self.x - neighbour.x) ** 2 + (self.y - neighbour.y) ** 2)
         return ceil(dist / MARCH_SPEED)
 
@@ -61,15 +60,17 @@ class March:
 
 
 class Game:
-    forts = {}  # {name: fort(Fort)}
-    players = {}  #
+    forts = {}
+    players = {}
     marches = set()
 
     @staticmethod
     def parse_fort(line):
         fort_name = line[0]
         owner_name = line[3]
-        Game.players[owner_name] = Player(owner_name)
+
+        if owner_name not in Game.players:
+            Game.players[owner_name] = Player(owner_name)
 
         if fort_name in Game.forts.keys():
             Game.forts[fort_name].update(*line)
@@ -99,7 +100,7 @@ class Game:
 
         try:
             while True:
-                Game.players, Game.marches = {}, set()
+                Game.marches = set()
                 handle(Game.parse_fort)
                 handle(Game.parse_road)
                 handle(Game.parse_march)
@@ -144,7 +145,7 @@ class Mind:
         self.__attack()
         # TODO
 
-    def orders(self) -> str:
+    def orders(self):
         amount = "{} marches:".format(len(self.commands))
         commands = [str(command) for command in self.commands]
         return '\n'.join([amount] + commands)
@@ -155,7 +156,7 @@ class Mind:
         self.marches = self.player.marches
         self.territory = set(f for f in self.forts if self.__in_safety(f))
         self.borders = set(f for f in self.forts if not self.__in_safety(f))
-        self.neutral = set(f for f in Game.forts.values() if f.owner == 'neutral')
+        self.neutral = set(f for f in Game.forts.values() if f.owner is 'neutral')
         self.under_attack = set(f for f in self.forts if self.__threatened(f))
 
         self.targets = defaultdict(set)
@@ -203,7 +204,8 @@ class Mind:
         return all(n.owner not in (self.player, Game.players.get('neutral'))
                    for n in my_fort.neighbours)
 
-    def __threatened(self, my_fort):
+    @staticmethod
+    def __threatened(my_fort):
         return any(t.owner is my_fort.owner for t in my_fort.incoming.values())
 
 
