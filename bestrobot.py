@@ -12,21 +12,23 @@ class Player:
     def __init__(self, name):
         self.name = name
         self.marches = set()
-        self.forts = set()
+
+    def forts(self):
+        return set(f for f in Game.forts if f.owner is self)
 
 
 class Fort:
     def __init__(self, name, x, y, owner, garrison):
-        self.name = name
-        self.x = int(x)
-        self.y = int(y)
-        self.garrison = int(garrison)
-        self.owner = Game.players[owner]
+        self.name = None
+        self.x = None
+        self.y = None
+        self.garrison = None
+        self.owner = None
+        self.update(name, x, y, owner, garrison)
 
         self.neighbours = set()
         self.incoming = {}
         self.outgoing = {}
-        Game.players[owner].forts.add(self)
 
     def distance(self, neighbour):
         dist = sqrt((self.x - neighbour.x) ** 2 + (self.y - neighbour.y) ** 2)
@@ -40,10 +42,18 @@ class Fort:
         self.y = int(y)
         self.garrison = int(garrison)
         self.owner = Game.players[owner]
-        Game.players[owner].forts.add(self)
 
     def add_neighbour(self, neighbour):
         self.neighbours.add(neighbour)
+
+    def hostile_neighbours(self):
+        return set(f for f in self.neighbours if f.owner is not Game.neutral)
+
+    def neutral_neighbours(self):
+        return set(f for f in self.neighbours if f.owner is Game.neutral)
+
+    def friendly_neighbours(self):
+        return set(f for f in self.neighbours if f.owner is self.owner)
 
 
 class March:
@@ -63,6 +73,7 @@ class Game:
     forts = {}
     players = {}
     marches = set()
+    neutral = Player('neutral')
 
     @staticmethod
     def parse_fort(line):
@@ -93,9 +104,10 @@ class Game:
     @staticmethod
     def start():
         mind = Mind(ME)
+        Game.players['neutral'] = Game.neutral
 
         def handle(handler):
-            for i in range(int(input().split()[0])):
+            for i in range(int(input().split(' ')[0])):
                 handler(input().split())
 
         try:
@@ -142,7 +154,7 @@ class Mind:
         self.__collect_data()
         self.__get_neutral()
         self.__defend_borders()
-        self.__attack()
+        # self.__attack()
         # TODO
 
     def orders(self):
@@ -156,15 +168,14 @@ class Mind:
         self.marches = self.player.marches
         self.territory = set(f for f in self.forts if self.__in_safety(f))
         self.borders = set(f for f in self.forts if not self.__in_safety(f))
-        self.neutral = set(f for f in Game.forts.values() if f.owner is 'neutral')
         self.under_attack = set(f for f in self.forts if self.__threatened(f))
 
         self.targets = defaultdict(set)
         for mine in self.forts:
             for tar in mine.neighbours:
                 if tar.owner is not self.player:
-                    tmp = self.targets[tar].union([mine])
-                    self.targets.update([(tar, tmp)])
+                    tmp = self.targets[tar].append(mine)
+                    self.targets[tar] = tmp
 
     def __get_neutral(self):
         for fort in self.borders:
@@ -172,6 +183,13 @@ class Mind:
             for neut in neuts:
                 if neut.garrison <= fort.garrison:
                     self.__apply_command(fort, neut, neut.garrison)
+
+    def __spread(self):
+        for fort in self.borders:
+            neutral_targets = fort.neutral_neighbours()
+            amount = fort.garrison // len(neutral_targets)
+            for target in neutral_targets:
+                    self.__apply_command(fort, target, amount)
 
     def __attack(self):
         def pressure(f, t):
@@ -200,9 +218,10 @@ class Mind:
         origin.garrison -= amount
         self.commands.add(Command(origin, destination, amount))
 
-    def __in_safety(self, my_fort):
-        return all(n.owner not in (self.player, Game.players.get('neutral'))
-                   for n in my_fort.neighbours)
+    @staticmethod
+    def __in_safety(my_fort):
+        return len(my_fort.neutral_neighbours()) is 0 \
+            and len(my_fort.hostile_neighbours()) is 0
 
     @staticmethod
     def __threatened(my_fort):
